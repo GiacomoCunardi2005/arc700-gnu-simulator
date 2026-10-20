@@ -1,0 +1,12 @@
+/.local-build/
+/build/
+/install/
+/source/
+*.elf
+*.bin
+*.trace
+*.log
+*.o
+*.a
+*.so
+__pycache__/

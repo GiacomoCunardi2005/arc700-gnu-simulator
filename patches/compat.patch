@@ -1,0 +1,23 @@
+diff --git a/sim/common/gentmap.c b/sim/common/gentmap.c
+index a4d3713..b38d747 100644
+--- a/sim/common/gentmap.c
++++ b/sim/common/gentmap.c
+@@ -1,3 +1,5 @@
++/* AKERUOS_GENTMAP_FIX8 */
++#include <string.h>
+ /* Generate targ-vals.h and targ-map.c.  */
+ 
+ #include <stdio.h>
+diff --git a/sim/common/sim-utils.c b/sim/common/sim-utils.c
+index 34ed2c2..b82ab65 100644
+--- a/sim/common/sim-utils.c
++++ b/sim/common/sim-utils.c
+@@ -47,6 +47,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+ #include "libiberty.h"
+ #include "bfd.h"
+ #include "sim-utils.h"
++#include "cgen-mem.h"
++#include <ctype.h>
+ 
+ /* Global pointer to all state data.
+    Set by sim_resume.  */
