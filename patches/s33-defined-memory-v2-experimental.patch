@@ -1,0 +1,593 @@
+diff --git a/sim/arc/cpu5.h b/sim/arc/cpu5.h
+index b6dccd0..f340e82 100644
+--- a/sim/arc/cpu5.h
++++ b/sim/arc/cpu5.h
+@@ -98,8 +98,25 @@ CPU (h_cr[(index)]) = (x);\
+   }\
+ ;} while (0)
+   /* auxiliary registers */
+-  SI h_auxr[64];
+-#define GET_H_AUXR(index) (index == 0) ? ((cgen_rtx_error (current_cpu, "invalid insn"), 0)) : (index == 6) ? (ADDSI (CPU (h_pc), 4)) : (index == 10) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_lbit)), 12), ORSI (SLLSI (ZEXTBISI (CPU (h_zbit)), 11), ORSI (SLLSI (ZEXTBISI (CPU (h_nbit)), 10), ORSI (SLLSI (ZEXTBISI (CPU (h_cbit)), 9), ORSI (SLLSI (ZEXTBISI (CPU (h_vbit)), 8), ORSI (SLLSI (ZEXTBISI (CPU (h_e1)), 1), SLLSI (ZEXTBISI (CPU (h_e2)), 2)))))))) : (index == 33) ? (ADDSI (CPU_INSN_COUNT (current_cpu), SUBSI (CPU (h_auxr[((UINT) 35)]), CPU (h_timer_expire[((UINT) 0)])))) : (index == 65) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_s1bit)), 9), SLLSI (ZEXTBISI (CPU (h_s2bit)), 4))) : (CPU (h_auxr[index]))
++  SI h_auxr[2048];
++#define S33_AUX_READ(index) \
++({ UINT s33_i = (UINT) (index); SI s33_value = 0; \
++  if (s33_i >= 2048) { \
++    sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_RANGE index=%u\n", s33_i); \
++    cgen_rtx_error (current_cpu, "AUX index outside configured 0..2047 bank"); \
++  } else if (s33_i >= 64 && !CPU (h_s33_aux_valid[s33_i]) && s33_i != 0x94) { \
++    sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_UNKNOWN index=%u\n", s33_i); \
++    cgen_rtx_error (current_cpu, "Unconfigured extended AUX read"); \
++  } else { \
++    s33_value = CPU (h_auxr[s33_i]); \
++    if (s33_i >= 64 && !CPU (h_s33_aux_valid[s33_i])) { \
++      CPU (h_s33_aux_valid[s33_i]) = 1; \
++      sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_LAB_RESET index=%u value=00000000 assumed=1\n", s33_i); \
++    } \
++  } \
++  s33_value; })
++
++#define GET_H_AUXR(index) (index == 0) ? ((cgen_rtx_error (current_cpu, "invalid insn"), 0)) : (index == 6) ? (ADDSI (CPU (h_pc), 4)) : (index == 10) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_lbit)), 12), ORSI (SLLSI (ZEXTBISI (CPU (h_zbit)), 11), ORSI (SLLSI (ZEXTBISI (CPU (h_nbit)), 10), ORSI (SLLSI (ZEXTBISI (CPU (h_cbit)), 9), ORSI (SLLSI (ZEXTBISI (CPU (h_vbit)), 8), ORSI (SLLSI (ZEXTBISI (CPU (h_e1)), 1), SLLSI (ZEXTBISI (CPU (h_e2)), 2)))))))) : (index == 33) ? (ADDSI (CPU_INSN_COUNT (current_cpu), SUBSI (CPU (h_auxr[((UINT) 35)]), CPU (h_timer_expire[((UINT) 0)])))) : (index == 65) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_s1bit)), 9), SLLSI (ZEXTBISI (CPU (h_s2bit)), 4))) : S33_AUX_READ (index)
+ #define SET_H_AUXR(index, x) \
+ do { \
+   switch ((index))\
+@@ -127,6 +144,8 @@ CPU (h_timer_expire[((UINT) 0)]) = ADDSI (CPU_INSN_COUNT (current_cpu), SUBSI (C
+ }\
+     break;\
+   case 65 : {\
++CPU (h_auxr[65]) = (x);\
++CPU (h_s33_aux_valid[65]) = 1;\
+ if (ANDSI ((x), 2)) {\
+ CPU (h_s1bit) = 0;\
+ CPU (h_s2bit) = 0;\
+@@ -134,7 +153,15 @@ CPU (h_s2bit) = 0;\
+ }\
+     break;\
+   default : {\
+-CPU (h_auxr[(index)]) = (x);\
++UINT s33_i = (UINT) (index);\
++if (s33_i >= 2048) {\
++sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_RANGE index=%u\n", s33_i);\
++cgen_rtx_error (current_cpu, "AUX index outside configured 0..2047 bank");\
++} else {\
++CPU (h_auxr[s33_i]) = (x);\
++CPU (h_s33_aux_valid[s33_i]) = 1;\
++if (s33_i >= 64) sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_LAB_WRITE index=%u value=%08x storage_only=1\n", s33_i, (USI) (x));\
++}\
+ }\
+     break;\
+   }\
+@@ -151,6 +178,7 @@ CPU (h_auxr[(index)]) = (x);\
+   USI h_pc;
+ #define GET_H_PC() CPU (h_pc)
+ #define SET_H_PC(x) (CPU (h_pc) = (x))
++  UQI h_s33_aux_valid[2048];
+   } hardware;
+ #define CPU_CGEN_HW(cpu) (& (cpu)->cpu_data.hardware)
+ } A5F_CPU_DATA;
+diff --git a/sim/arc/cpu6.h b/sim/arc/cpu6.h
+index 738edbb..85301e5 100644
+--- a/sim/arc/cpu6.h
++++ b/sim/arc/cpu6.h
+@@ -98,8 +98,25 @@ CPU (h_cr[(index)]) = (x);\
+   }\
+ ;} while (0)
+   /* auxiliary registers */
+-  SI h_auxr[64];
+-#define GET_H_AUXR(index) (index == 0) ? ((cgen_rtx_error (current_cpu, "invalid insn"), 0)) : (index == 6) ? (ADDSI (CPU (h_pc), 4)) : (index == 10) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_lbit)), 12), ORSI (SLLSI (ZEXTBISI (CPU (h_zbit)), 11), ORSI (SLLSI (ZEXTBISI (CPU (h_nbit)), 10), ORSI (SLLSI (ZEXTBISI (CPU (h_cbit)), 9), ORSI (SLLSI (ZEXTBISI (CPU (h_vbit)), 8), ORSI (SLLSI (ZEXTBISI (CPU (h_e1)), 1), SLLSI (ZEXTBISI (CPU (h_e2)), 2)))))))) : (index == 33) ? (ADDSI (CPU_INSN_COUNT (current_cpu), SUBSI (CPU (h_auxr[((UINT) 35)]), CPU (h_timer_expire[((UINT) 0)])))) : (index == 65) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_s1bit)), 9), SLLSI (ZEXTBISI (CPU (h_s2bit)), 4))) : (CPU (h_auxr[index]))
++  SI h_auxr[2048];
++#define S33_AUX_READ(index) \
++({ UINT s33_i = (UINT) (index); SI s33_value = 0; \
++  if (s33_i >= 2048) { \
++    sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_RANGE index=%u\n", s33_i); \
++    cgen_rtx_error (current_cpu, "AUX index outside configured 0..2047 bank"); \
++  } else if (s33_i >= 64 && !CPU (h_s33_aux_valid[s33_i]) && s33_i != 0x94) { \
++    sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_UNKNOWN index=%u\n", s33_i); \
++    cgen_rtx_error (current_cpu, "Unconfigured extended AUX read"); \
++  } else { \
++    s33_value = CPU (h_auxr[s33_i]); \
++    if (s33_i >= 64 && !CPU (h_s33_aux_valid[s33_i])) { \
++      CPU (h_s33_aux_valid[s33_i]) = 1; \
++      sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_LAB_RESET index=%u value=00000000 assumed=1\n", s33_i); \
++    } \
++  } \
++  s33_value; })
++
++#define GET_H_AUXR(index) (index == 0) ? ((cgen_rtx_error (current_cpu, "invalid insn"), 0)) : (index == 6) ? (ADDSI (CPU (h_pc), 4)) : (index == 10) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_lbit)), 12), ORSI (SLLSI (ZEXTBISI (CPU (h_zbit)), 11), ORSI (SLLSI (ZEXTBISI (CPU (h_nbit)), 10), ORSI (SLLSI (ZEXTBISI (CPU (h_cbit)), 9), ORSI (SLLSI (ZEXTBISI (CPU (h_vbit)), 8), ORSI (SLLSI (ZEXTBISI (CPU (h_e1)), 1), SLLSI (ZEXTBISI (CPU (h_e2)), 2)))))))) : (index == 33) ? (ADDSI (CPU_INSN_COUNT (current_cpu), SUBSI (CPU (h_auxr[((UINT) 35)]), CPU (h_timer_expire[((UINT) 0)])))) : (index == 65) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_s1bit)), 9), SLLSI (ZEXTBISI (CPU (h_s2bit)), 4))) : S33_AUX_READ (index)
+ #define SET_H_AUXR(index, x) \
+ do { \
+   switch ((index))\
+@@ -127,6 +144,8 @@ CPU (h_timer_expire[((UINT) 0)]) = ADDSI (CPU_INSN_COUNT (current_cpu), SUBSI (C
+ }\
+     break;\
+   case 65 : {\
++CPU (h_auxr[65]) = (x);\
++CPU (h_s33_aux_valid[65]) = 1;\
+ if (ANDSI ((x), 2)) {\
+ CPU (h_s1bit) = 0;\
+ CPU (h_s2bit) = 0;\
+@@ -134,7 +153,15 @@ CPU (h_s2bit) = 0;\
+ }\
+     break;\
+   default : {\
+-CPU (h_auxr[(index)]) = (x);\
++UINT s33_i = (UINT) (index);\
++if (s33_i >= 2048) {\
++sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_RANGE index=%u\n", s33_i);\
++cgen_rtx_error (current_cpu, "AUX index outside configured 0..2047 bank");\
++} else {\
++CPU (h_auxr[s33_i]) = (x);\
++CPU (h_s33_aux_valid[s33_i]) = 1;\
++if (s33_i >= 64) sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_LAB_WRITE index=%u value=%08x storage_only=1\n", s33_i, (USI) (x));\
++}\
+ }\
+     break;\
+   }\
+@@ -151,6 +178,7 @@ CPU (h_auxr[(index)]) = (x);\
+   USI h_pc;
+ #define GET_H_PC() CPU (h_pc)
+ #define SET_H_PC(x) (CPU (h_pc) = (x))
++  UQI h_s33_aux_valid[2048];
+   } hardware;
+ #define CPU_CGEN_HW(cpu) (& (cpu)->cpu_data.hardware)
+ } ARC600F_CPU_DATA;
+diff --git a/sim/arc/cpu7.h b/sim/arc/cpu7.h
+index dd70310..aeb005d 100644
+--- a/sim/arc/cpu7.h
++++ b/sim/arc/cpu7.h
+@@ -98,8 +98,34 @@ CPU (h_cr[(index)]) = (x);\
+   }\
+ ;} while (0)
+   /* auxiliary registers */
+-  SI h_auxr[64];
+-#define GET_H_AUXR(index) (index == 0) ? ((cgen_rtx_error (current_cpu, "invalid insn"), 0)) : (index == 6) ? (ADDSI (CPU (h_pc), 4)) : (index == 10) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_lbit)), 12), ORSI (SLLSI (ZEXTBISI (CPU (h_zbit)), 11), ORSI (SLLSI (ZEXTBISI (CPU (h_nbit)), 10), ORSI (SLLSI (ZEXTBISI (CPU (h_cbit)), 9), ORSI (SLLSI (ZEXTBISI (CPU (h_vbit)), 8), ORSI (SLLSI (ZEXTBISI (CPU (h_e1)), 1), SLLSI (ZEXTBISI (CPU (h_e2)), 2)))))))) : (index == 33) ? (ADDSI (CPU_INSN_COUNT (current_cpu), SUBSI (CPU (h_auxr[((UINT) 35)]), CPU (h_timer_expire[((UINT) 0)])))) : (index == 65) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_s1bit)), 9), SLLSI (ZEXTBISI (CPU (h_s2bit)), 4))) : (CPU (h_auxr[index]))
++  SI h_auxr[2048];
++#define S33_AUX_READ(index) \
++({ UINT s33_i = (UINT) (index); SI s33_value = 0; \
++  if (s33_i >= 2048) { \
++    sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_RANGE index=%u\n", s33_i); \
++    cgen_rtx_error (current_cpu, "AUX index outside configured 0..2047 bank"); \
++  } else if (s33_i == 0x201) { \
++    /* This variant has no injected host IRQs and no supported nonzero SR requests. \
++       An empty software source is simulator state, NOT a Nikon reset reading. */ \
++    if (!CPU (h_s33_aux_valid[513])) { \
++      CPU (h_auxr[513]) = 0; CPU (h_s33_aux_valid[513]) = 1; \
++      sim_io_eprintf (CPU_STATE (current_cpu), "S33_IRQ_HINT_EMPTY host_requests=0 guest_requests=0 laboratory_state=1\n"); \
++    } \
++    s33_value = CPU (h_auxr[513]); \
++  } else if (s33_i >= 64 && !CPU (h_s33_aux_valid[s33_i]) && s33_i != 0x94 && s33_i != 0x43 && s33_i != 0x200) { \
++    sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_UNKNOWN index=%u\n", s33_i); \
++    cgen_rtx_error (current_cpu, "Unconfigured extended AUX read"); \
++  } else { \
++    s33_value = CPU (h_auxr[s33_i]); \
++    if (s33_i >= 64 && !CPU (h_s33_aux_valid[s33_i])) { \
++      CPU (h_s33_aux_valid[s33_i]) = 1; \
++      if (s33_i == 0x43 || s33_i == 0x200) sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_ARCH_RESET index=%u value=00000000\n", s33_i); \
++      else sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_LAB_RESET index=%u value=00000000 assumed=1\n", s33_i); \
++    } \
++  } \
++  s33_value; })
++
++#define GET_H_AUXR(index) (index == 0) ? ((cgen_rtx_error (current_cpu, "invalid insn"), 0)) : (index == 6) ? (ADDSI (CPU (h_pc), 4)) : (index == 10) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_lbit)), 12), ORSI (SLLSI (ZEXTBISI (CPU (h_zbit)), 11), ORSI (SLLSI (ZEXTBISI (CPU (h_nbit)), 10), ORSI (SLLSI (ZEXTBISI (CPU (h_cbit)), 9), ORSI (SLLSI (ZEXTBISI (CPU (h_vbit)), 8), ORSI (SLLSI (ZEXTBISI (CPU (h_e1)), 1), SLLSI (ZEXTBISI (CPU (h_e2)), 2)))))))) : (index == 33) ? (ADDSI (CPU_INSN_COUNT (current_cpu), SUBSI (CPU (h_auxr[((UINT) 35)]), CPU (h_timer_expire[((UINT) 0)])))) : (index == 65) ? (ORSI (SLLSI (ZEXTBISI (CPU (h_s1bit)), 9), SLLSI (ZEXTBISI (CPU (h_s2bit)), 4))) : S33_AUX_READ (index)
+ #define SET_H_AUXR(index, x) \
+ do { \
+   switch ((index))\
+@@ -127,14 +153,48 @@ CPU (h_timer_expire[((UINT) 0)]) = ADDSI (CPU_INSN_COUNT (current_cpu), SUBSI (C
+ }\
+     break;\
+   case 65 : {\
++CPU (h_auxr[65]) = (x);\
++CPU (h_s33_aux_valid[65]) = 1;\
+ if (ANDSI ((x), 2)) {\
+ CPU (h_s1bit) = 0;\
+ CPU (h_s2bit) = 0;\
+ }\
++}\
++    break;\
++  case 67 : {\
++CPU (h_auxr[67]) &= ~((USI) (x) & 3);\
++CPU (h_auxr[67]) &= 3;\
++CPU (h_s33_aux_valid[67]) = 1;\
++sim_io_eprintf (CPU_STATE (current_cpu), "S33_IRQ_W1C value=%08x status=%08x\n", (USI) (x), (USI) CPU (h_auxr[67]));\
++}\
++    break;\
++  case 512 : {\
++CPU (h_auxr[512]) = (USI) (x) & 0xfffffff8;\
++CPU (h_s33_aux_valid[512]) = 1;\
++sim_io_eprintf (CPU_STATE (current_cpu), "S33_IRQ_PRIORITY value=%08x\n", (USI) CPU (h_auxr[512]));\
++}\
++    break;\
++  case 513 : {\
++USI s33_request = (USI) (x);\
++if (s33_request != 0) {\
++sim_io_eprintf (CPU_STATE (current_cpu), "S33_IRQ_HINT_UNSUPPORTED request=%08x delivery_not_implemented=1\n", s33_request);\
++cgen_rtx_error (current_cpu, "Nonzero software IRQ request requires delivery model");\
++} else {\
++CPU (h_auxr[513]) = 0; CPU (h_s33_aux_valid[513]) = 1;\
++sim_io_eprintf (CPU_STATE (current_cpu), "S33_IRQ_HINT_CLEAR value=00000000\n");\
++}\
+ }\
+     break;\
+   default : {\
+-CPU (h_auxr[(index)]) = (x);\
++UINT s33_i = (UINT) (index);\
++if (s33_i >= 2048) {\
++sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_RANGE index=%u\n", s33_i);\
++cgen_rtx_error (current_cpu, "AUX index outside configured 0..2047 bank");\
++} else {\
++CPU (h_auxr[s33_i]) = (x);\
++CPU (h_s33_aux_valid[s33_i]) = 1;\
++if (s33_i >= 64) sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_LAB_WRITE index=%u value=%08x storage_only=1\n", s33_i, (USI) (x));\
++}\
+ }\
+     break;\
+   }\
+@@ -151,6 +211,7 @@ CPU (h_auxr[(index)]) = (x);\
+   USI h_pc;
+ #define GET_H_PC() CPU (h_pc)
+ #define SET_H_PC(x) (CPU (h_pc) = (x))
++  UQI h_s33_aux_valid[2048];
+   } hardware;
+ #define CPU_CGEN_HW(cpu) (& (cpu)->cpu_data.hardware)
+ } ARC700F_CPU_DATA;
+diff --git a/sim/arc/decode7.c b/sim/arc/decode7.c
+index 2279453..59efae0 100644
+--- a/sim/arc/decode7.c
++++ b/sim/arc/decode7.c
+@@ -593,6 +593,19 @@ arc700f_decode (SIM_CPU *current_cpu, IADDR pc,
+   {
+     CGEN_INSN_INT insn = base_insn;
+ 
++    /* Deliberately restricted provisional S33 DSP subset, not a replacement ISA. */
++    {
++      USI kind = entire_insn & 0xf8ff803f;
++      USI b = ((entire_insn >> 24) & 7) | (((entire_insn >> 12) & 7) << 3);
++      USI c = (entire_insn >> 6) & 63;
++      if ((kind == 0x280c003e || kind == 0x280d003e) && b < 32 && c < 32)
++        {
++          itype = ARC700F_INSN_MULULW_L_R_R__RA__RC;
++          goto extract_sfmt_add_L_r_r__RA__RC;
++        }
++    }
++
++
+     {
+       unsigned int val = (((insn >> 20) & (1 << 10)) | ((insn >> 19) & (3 << 8)) | ((insn >> 16) & (255 << 0)));
+       switch (val)
+diff --git a/sim/arc/mloop7.in b/sim/arc/mloop7.in
+index fc95572..6f30810 100644
+--- a/sim/arc/mloop7.in
++++ b/sim/arc/mloop7.in
+@@ -51,6 +51,7 @@ extract (SIM_CPU *current_cpu, PCADDR pc, CGEN_INSN_INT base_insn,
+   const IDESC *id = @cpu@_decode (current_cpu, pc, /*base_*/insn, insn, abuf);
+ 
+   @cpu@_fill_argbuf (current_cpu, abuf, id, pc, fast_p);
++  abuf->unused = 0; /* S33: default outside PBB delay slots. */
+   if (! fast_p)
+     {
+       int trace_p = PC_IN_TRACE_RANGE_P (current_cpu, pc);
+@@ -218,6 +219,7 @@ cat <<EOF
+ 
+ 	    }
+ 	}
++      sc->argbuf.unused = (_cti_sc != NULL); /* S33: executed delay slot. */
+       ++sc;
+       --max_insns;
+       ++icount;
+diff --git a/sim/arc/sem7-switch.c b/sim/arc/sem7-switch.c
+index 0726dc7..e52275f 100644
+--- a/sim/arc/sem7-switch.c
++++ b/sim/arc/sem7-switch.c
+@@ -21619,7 +21619,7 @@ CPU (h_cr[((UINT) 63)]) = ANDSI (pc, -4);
+   }
+ }
+ 
+-  SEM_BRANCH_FINI (vpc);
++  if (!abuf->unused) { SEM_BRANCH_FINI (vpc); }
+ #undef FLD
+ }
+   NEXT (vpc);
+@@ -21657,7 +21657,7 @@ CPU (h_cr[((UINT) 63)]) = ANDSI (pc, -4);
+   }
+ }
+ 
+-  SEM_BRANCH_FINI (vpc);
++  if (!abuf->unused) { SEM_BRANCH_FINI (vpc); }
+ #undef FLD
+ }
+   NEXT (vpc);
+@@ -21695,7 +21695,7 @@ CPU (h_cr[((UINT) 63)]) = ANDSI (pc, -4);
+   }
+ }
+ 
+-  SEM_BRANCH_FINI (vpc);
++  if (!abuf->unused) { SEM_BRANCH_FINI (vpc); }
+ #undef FLD
+ }
+   NEXT (vpc);
+@@ -32049,6 +32049,46 @@ if (tmp_cur_s1bit) {
+   IADDR UNUSED pc = abuf->addr;
+   vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+ 
++/* S33 experimental DSP subset, NOT a complete or hardware-validated DSP model.
++   Original instruction bytes are unchanged. The generic 4-byte R/R descriptor
++   is an internal carrier only; S33_DSP_LAB records identify the real operation.
++   Sources: MAME dual signed product plus Nikon's raw-r57 consumer (inference).
++   Only ZA, no .f, ordinary registers, explicit MACMODE=0.
++   Signed: low positive lanes or zero operand, as in v3.
++   Unsigned: raw lane products, each <= 0x7fffffff (exclude possible saturation).
++   Raw lane ordering and unused DSP side effects remain an explicit inference.
++ */
++{
++  USI s33_word = ((USI) GETMEMUHI (current_cpu, pc, pc) << 16)
++    | GETMEMUHI (current_cpu, pc, pc + 2);
++  USI s33_kind = s33_word & 0xf8ff803f;
++  if (s33_kind == 0x280c003e || s33_kind == 0x280d003e)
++    {
++      USI s33_left = GET_H_CR (FLD (f_op_B));
++      USI s33_right = GET_H_CR (FLD (f_op_C));
++      USI s33_high = (s33_left >> 16) * (s33_right >> 16);
++      USI s33_low = (s33_left & 65535) * (s33_right & 65535);
++      int s33_domain = s33_kind == 0x280d003e
++        ? (s33_high <= 0x7fffffff && s33_low <= 0x7fffffff)
++        : ((s33_left <= 0x7fff && s33_right <= 0x7fff) || s33_left == 0 || s33_right == 0);
++      if (!CPU (h_s33_aux_valid[65]) || CPU (h_auxr[65]) != 0 || !s33_domain)
++        {
++          sim_io_eprintf (CPU_STATE (current_cpu),
++            "S33_DSP_GUARD pc=%08x word=%08x left=%08x right=%08x mode=%08x seen=%u\n",
++            pc, s33_word, s33_left, s33_right,
++            (USI) CPU (h_auxr[65]), CPU (h_s33_aux_valid[65]));
++          cgen_rtx_error (current_cpu, "S33 DSP experiment: unsupported state");
++        }
++      SET_H_CR (56, s33_high);
++      SET_H_CR (57, s33_low);
++      sim_io_eprintf (CPU_STATE (current_cpu),
++        "S33_DSP_LAB pc=%08x word=%08x left=%08x right=%08x r56=%08x r57=%08x provisional=1\n",
++        pc, s33_word, s33_left, s33_right, s33_high, s33_low);
++      goto s33_lab_done;
++    }
++}
++
++
+ {
+   SI tmp_result;
+   BI tmp_cur_s1bit;
+@@ -32125,6 +32165,7 @@ if (tmp_cur_s1bit) {
+   }
+ }
+ 
++s33_lab_done:
+   abuf->written = written;
+ #undef FLD
+ }
+diff --git a/sim/arc/sem7.c b/sim/arc/sem7.c
+index 1ab771e..46291df 100644
+--- a/sim/arc/sem7.c
++++ b/sim/arc/sem7.c
+@@ -21719,7 +21719,7 @@ CPU (h_cr[((UINT) 63)]) = ANDSI (pc, -4);
+   }
+ }
+ 
+-  SEM_BRANCH_FINI (vpc);
++  if (!abuf->unused) { SEM_BRANCH_FINI (vpc); }
+   return vpc;
+ #undef FLD
+ }
+@@ -21759,7 +21759,7 @@ CPU (h_cr[((UINT) 63)]) = ANDSI (pc, -4);
+   }
+ }
+ 
+-  SEM_BRANCH_FINI (vpc);
++  if (!abuf->unused) { SEM_BRANCH_FINI (vpc); }
+   return vpc;
+ #undef FLD
+ }
+@@ -21799,7 +21799,7 @@ CPU (h_cr[((UINT) 63)]) = ANDSI (pc, -4);
+   }
+ }
+ 
+-  SEM_BRANCH_FINI (vpc);
++  if (!abuf->unused) { SEM_BRANCH_FINI (vpc); }
+   return vpc;
+ #undef FLD
+ }
+@@ -32463,6 +32463,46 @@ SEM_FN_NAME (arc700f,mululw_L_r_r__RA__RC) (SIM_CPU *current_cpu, SEM_ARG sem_ar
+   IADDR UNUSED pc = abuf->addr;
+   SEM_PC vpc = SEM_NEXT_VPC (sem_arg, pc, 4);
+ 
++/* S33 experimental DSP subset, NOT a complete or hardware-validated DSP model.
++   Original instruction bytes are unchanged. The generic 4-byte R/R descriptor
++   is an internal carrier only; S33_DSP_LAB records identify the real operation.
++   Sources: MAME dual signed product plus Nikon's raw-r57 consumer (inference).
++   Only ZA, no .f, ordinary registers, explicit MACMODE=0.
++   Signed: low positive lanes or zero operand, as in v3.
++   Unsigned: raw lane products, each <= 0x7fffffff (exclude possible saturation).
++   Raw lane ordering and unused DSP side effects remain an explicit inference.
++ */
++{
++  USI s33_word = ((USI) GETMEMUHI (current_cpu, pc, pc) << 16)
++    | GETMEMUHI (current_cpu, pc, pc + 2);
++  USI s33_kind = s33_word & 0xf8ff803f;
++  if (s33_kind == 0x280c003e || s33_kind == 0x280d003e)
++    {
++      USI s33_left = GET_H_CR (FLD (f_op_B));
++      USI s33_right = GET_H_CR (FLD (f_op_C));
++      USI s33_high = (s33_left >> 16) * (s33_right >> 16);
++      USI s33_low = (s33_left & 65535) * (s33_right & 65535);
++      int s33_domain = s33_kind == 0x280d003e
++        ? (s33_high <= 0x7fffffff && s33_low <= 0x7fffffff)
++        : ((s33_left <= 0x7fff && s33_right <= 0x7fff) || s33_left == 0 || s33_right == 0);
++      if (!CPU (h_s33_aux_valid[65]) || CPU (h_auxr[65]) != 0 || !s33_domain)
++        {
++          sim_io_eprintf (CPU_STATE (current_cpu),
++            "S33_DSP_GUARD pc=%08x word=%08x left=%08x right=%08x mode=%08x seen=%u\n",
++            pc, s33_word, s33_left, s33_right,
++            (USI) CPU (h_auxr[65]), CPU (h_s33_aux_valid[65]));
++          cgen_rtx_error (current_cpu, "S33 DSP experiment: unsupported state");
++        }
++      SET_H_CR (56, s33_high);
++      SET_H_CR (57, s33_low);
++      sim_io_eprintf (CPU_STATE (current_cpu),
++        "S33_DSP_LAB pc=%08x word=%08x left=%08x right=%08x r56=%08x r57=%08x provisional=1\n",
++        pc, s33_word, s33_left, s33_right, s33_high, s33_low);
++      goto s33_lab_done;
++    }
++}
++
++
+ {
+   SI tmp_result;
+   BI tmp_cur_s1bit;
+@@ -32539,6 +32579,7 @@ if (tmp_cur_s1bit) {
+   }
+ }
+ 
++s33_lab_done:
+   abuf->written = written;
+   return vpc;
+ #undef FLD
+diff --git a/sim/arc/sim-if.c b/sim/arc/sim-if.c
+index be4d99e..ff9457e 100644
+--- a/sim/arc/sim-if.c
++++ b/sim/arc/sim-if.c
+@@ -34,6 +34,78 @@
+ #include <stdlib.h>
+ #endif
+ 
++/* Laboratory provenance for the chosen 128 MiB CPU bank; not physical RAM geometry. */
++#define S33_RAM_LIMIT 0x08000000UL
++static unsigned char s33_defined[S33_RAM_LIMIT / 8];
++static int s33_defined_ready;
++static int s33_defined_active;
++
++static void
++s33_defined_init (SIM_CPU *cpu)
++{
++  const char *spec = getenv ("S33_DEFINED_RANGES");
++  unsigned long ranges = 0, bytes = 0;
++  if (s33_defined_ready) return;
++  if (!spec || !*spec) {
++    sim_io_eprintf (CPU_STATE (cpu), "S33_PROVENANCE_CONFIG missing_ranges=1\n");
++    cgen_rtx_error (cpu, "Explicit initial provenance required");
++    return;
++  }
++  if (strcmp (spec, "none") != 0) {
++    while (*spec) {
++      char *next;
++      unsigned long start = strtoul (spec, &next, 0), length, i;
++      if (next == spec || *next != ':') goto invalid;
++      spec = next + 1;
++      length = strtoul (spec, &next, 0);
++      if (next == spec || (*next && *next != ',') || !length
++          || start >= S33_RAM_LIMIT || length > S33_RAM_LIMIT - start) goto invalid;
++      for (i = start; i < start + length; ++i)
++        s33_defined[i >> 3] |= 1U << (i & 7);
++      ranges++; bytes += length;
++      if (!*next) break;
++      spec = next + 1;
++      if (!*spec) goto invalid;
++    }
++  }
++  s33_defined_ready = 1;
++  sim_io_eprintf (CPU_STATE (cpu), "S33_PROVENANCE bank_bytes=134217728 initial_ranges=%lu declared_bytes=%lu NOBITS_known_by_default=0\n", ranges, bytes);
++  return;
++invalid:
++  sim_io_eprintf (CPU_STATE (cpu), "S33_PROVENANCE_CONFIG invalid_ranges=1\n");
++  cgen_rtx_error (cpu, "Invalid initial provenance ranges");
++}
++
++void
++s33_require_defined (SIM_CPU *cpu, IADDR pc, ADDR address, unsigned size, int fetch)
++{
++  unsigned i;
++  if (!s33_defined_active) return;
++  s33_defined_init (cpu);
++  for (i = 0; i < size; ++i) {
++    unsigned long long byte = (unsigned long long) address + i;
++    if (byte < S33_RAM_LIMIT && !(s33_defined[byte >> 3] & (1U << (byte & 7)))) {
++      sim_io_eprintf (CPU_STATE (cpu), "S33_UNDEFINED pc=%08lx address=%08lx size=%u first=%08lx operation=%s\n",
++                      (unsigned long) pc, (unsigned long) address, size, (unsigned long) byte,
++                      fetch ? "decoder_fetch" : "data_read");
++      cgen_rtx_error (cpu, "Read without declared input or preceding guest store");
++      return;
++    }
++  }
++}
++
++void
++s33_store_defined (SIM_CPU *cpu, IADDR pc, ADDR address, unsigned size)
++{
++  unsigned i;
++  if (!s33_defined_active) return;
++  s33_defined_init (cpu);
++  for (i = 0; i < size; ++i) {
++    unsigned long long byte = (unsigned long long) address + i;
++    if (byte < S33_RAM_LIMIT) s33_defined[byte >> 3] |= 1U << (byte & 7);
++  }
++}
++
+ static void free_state (SIM_DESC);
+ static void print_arc_misc_cpu (SIM_CPU *cpu, int verbose);
+ 
+@@ -378,6 +450,7 @@ sim_create_inferior (sd, abfd, argv, envp)
+   STATE_ENVP (sd) = sim_copy_argv (envp);
+ #endif
+ 
++  s33_defined_active = 1; /* Host setup is not guest execution. */
+   return SIM_RC_OK;
+ }
+ 
+diff --git a/sim/arc/sim-main.h b/sim/arc/sim-main.h
+index 05c7ab3..7f48ee6 100644
+--- a/sim/arc/sim-main.h
++++ b/sim/arc/sim-main.h
+@@ -95,4 +95,6 @@ arc_core_signal ((SD), (CPU), (CIA), (MAP), (NR_BYTES), (ADDR), \
+ /* Default memory size.  */
+ #define ARC_DEFAULT_MEM_SIZE 0x2000000 /* 32M */
+ 
++extern void s33_require_defined (SIM_CPU *, IADDR, ADDR, unsigned, int);
++extern void s33_store_defined (SIM_CPU *, IADDR, ADDR, unsigned);
+ #endif /* SIM_MAIN_H */
+diff --git a/sim/common/cgen-mem.h b/sim/common/cgen-mem.h
+index d9ebbcc..a912007 100644
+--- a/sim/common/cgen-mem.h
++++ b/sim/common/cgen-mem.h
+@@ -38,6 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+ MEMOPS_INLINE mode \
+ XCONCAT2 (GETMEM,mode) (SIM_CPU *cpu, IADDR pc, ADDR a) \
+ { \
++  s33_require_defined (cpu, pc, a, size, 0); \
+   PROFILE_COUNT_READ (cpu, a, XCONCAT2 (MODE_,mode)); \
+   /* Don't read anything into "unaligned" here.  Bad name choice.  */\
+   return XCONCAT2 (sim_core_read_unaligned_,size) (cpu, pc, read_map, a); \
+@@ -68,6 +69,7 @@ XCONCAT2 (SETMEM,mode) (SIM_CPU *cpu, IADDR pc, ADDR a, mode val) \
+   PROFILE_COUNT_WRITE (cpu, a, XCONCAT2 (MODE_,mode)); \
+   /* Don't read anything into "unaligned" here.  Bad name choice.  */ \
+   XCONCAT2 (sim_core_write_unaligned_,size) (cpu, pc, write_map, a, val); \
++  s33_store_defined (cpu, pc, a, size); \
+ }
+ #else
+ #define DECLARE_SETMEM(mode, size) \
+@@ -94,6 +96,7 @@ XCONCAT2 (GETIMEM,mode) (SIM_CPU *cpu, IADDR a) \
+ { \
+   /*PROFILE_COUNT_READ (cpu, a, XCONCAT2 (MODE_,mode));*/ \
+   /* Don't read anything into "unaligned" here.  Bad name choice.  */\
++  s33_require_defined (cpu, a, a, size, 1); \
+   return XCONCAT2 (sim_core_read_unaligned_,size) (cpu, a, exec_map, a); \
+ }
+ #else
+@@ -123,6 +126,7 @@ DECLARE_GETIMEM (UDI, 8) /* TAGS: GETIMEMUDI */
+ MEMOPS_INLINE mode \
+ XCONCAT2 (GETMEM,mode) (SIM_CPU *cpu, IADDR pc, ADDR a) \
+ { \
++  s33_require_defined (cpu, pc, a, size, 0); \
+   PROFILE_COUNT_READ (cpu, a, XCONCAT2 (MODE_,mode)); \
+   /* Don't read anything into "unaligned" here.  Bad name choice.  */\
+   return XCONCAT2 (sim_core_read_unaligned_,size) (cpu, pc, read_map, a); \
+@@ -145,6 +149,7 @@ XCONCAT2 (SETMEM,mode) (SIM_CPU *cpu, IADDR pc, ADDR a, mode val) \
+   PROFILE_COUNT_WRITE (cpu, a, XCONCAT2 (MODE_,mode)); \
+   /* Don't read anything into "unaligned" here.  Bad name choice.  */ \
+   XCONCAT2 (sim_core_write_unaligned_,size) (cpu, pc, write_map, a, val); \
++  s33_store_defined (cpu, pc, a, size); \
+ }
+ #else
+ #define DECLARE_SETMEM(mode, size) \
