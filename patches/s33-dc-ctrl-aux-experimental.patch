@@ -1,0 +1,12 @@
+diff --git a/sim/arc/cpu7.h b/sim/arc/cpu7.h
+--- a/sim/arc/cpu7.h
++++ b/sim/arc/cpu7.h
+@@ -112,7 +112,7 @@
+       sim_io_eprintf (CPU_STATE (current_cpu), "S33_IRQ_HINT_EMPTY host_requests=0 guest_requests=0 laboratory_state=1\n"); \
+     } \
+     s33_value = CPU (h_auxr[513]); \
+-  } else if (s33_i >= 64 && !CPU (h_s33_aux_valid[s33_i]) && s33_i != 0x94 && s33_i != 0x43 && s33_i != 0x200) { \
++  } else if (s33_i >= 64 && !CPU (h_s33_aux_valid[s33_i]) && s33_i != 0x94 && s33_i != 0x43 && s33_i != 0x200 && s33_i != 0x48) { \
+     sim_io_eprintf (CPU_STATE (current_cpu), "S33_AUX_UNKNOWN index=%u\n", s33_i); \
+     cgen_rtx_error (current_cpu, "Unconfigured extended AUX read"); \
+   } else { \
