@@ -25,6 +25,27 @@ memory verifier covered 29 cases, and the DSP v7 GUI pipeline verifier passed
 and laboratory outputs are not part of this repository. The patches are
 archived here; the installer does not apply or test them automatically.
 
+## Known gaps of the DSP v7 subset
+
+A static census of the S33 firmware (November 2026) found about 234 real
+`muldw` and 1343 real `muludw` sites. Measured against that census, the v7
+subset has these gaps:
+
+* Signed `muldw` is accepted only for operands 0..0x7FFF or a zero operand.
+  Sign-extended negative operands, which are common in the firmware, stop
+  with `S33_DSP_GUARD`.
+* Only the register-register form with destination 62 and no `.f` is
+  decoded. 6 `muldw` sites using a limm or a register ≥ 32, and 12 `muludw`
+  sites in u6 form, fall through.
+* `macudw`/`macdw` are not modelled: 52 real `macudw` accumulate sites.
+* `aux_macmode` values other than 0 are rejected. Bit 3 is set by an image
+  resampler.
+
+The semantics inferred from compiler usage (16×16 lane products, r56 high
+lane, r57 low lane, `macudw` accumulates) are documented in the AkeruOS
+repository (`docs/02-dsp-muldw.md`). No hardware measurement exists. Do not
+extend the patch on that basis without noting it as an inference.
+
 ## Incremental patch: `s33-dc-ctrl-aux-experimental.patch`
 
 Apply after `s33-dsp-v7-experimental.patch` (or after the defined-memory

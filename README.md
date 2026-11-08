@@ -47,7 +47,17 @@ See THIRD_PARTY_NOTICES.md.
 
 - The historical GNU ARC700 simulator does not decode the
   `muldw` and `muludw` DSP instruction encodings observed
-  in Nikon COOLPIX S33 firmware.
+  in Nikon COOLPIX S33 firmware. The optional experimental
+  DSP patch covers only a restricted subset; see
+  `patches/EXPERIMENTAL-S33.md`.
 - CPU/ISA compatibility has not been certified at 99%.
 - Hardware-specific MMIO and peripherals are not implemented.
 - Nikon firmware and firmware-derived binaries are not distributed.
+
+## Related research
+
+The Nikon COOLPIX S33 findings obtained with this simulator
+(firmware structure, boot chain, kernel, GUI, keys, DSP
+instruction usage) are published in the
+[AkeruOS](https://github.com/GiacomoCunardi2005/AkeruOS)
+repository.
